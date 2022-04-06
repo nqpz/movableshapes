@@ -1,0 +1,6 @@
+/lib
+/*.c
+/*.o
+/*.h
+/movableshapes_wrapper.*
+/movableshapes
