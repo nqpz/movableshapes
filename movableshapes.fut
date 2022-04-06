@@ -29,19 +29,19 @@ def diameter = radius * 2
 def adjust_basis [n] (changes: [n](particle, position)) (basis: basis): basis =
   let calc (particle, position_change) =
     let pos_of_angle basis_angle =
-      let a = basis.orientation + basis_angle
+      let a = basis_angle + basis.orientation
       in {x=particle.basis_distance * f32.cos a,
           y=particle.basis_distance * f32.sin a}
     let {x, y} = pos_of_angle particle.basis_angle
-    let basis_angle' = f32.atan2 (y + position_change.y) (x + position_change.x) - basis.orientation
+    let (x', y') = (x + position_change.x, y + position_change.y)
+    let basis_angle' = f32.atan2 y' x' - basis.orientation
     let angle_diff = basis_angle' - particle.basis_angle
-    in angle_diff
+    in if f32.abs angle_diff > 1 then 0 else angle_diff -- hack, fixme
 
-  let n' = f32.i64 n
   let angle_diffs = map calc changes
-  in basis with orientation = basis.orientation + f32.sum angle_diffs / n'
-           with position.x = basis.position.x + f32.sum (map (.1.x) changes) / n'
-           with position.y = basis.position.y + f32.sum (map (.1.y) changes) / n'
+  in basis with orientation = basis.orientation + f32.sum angle_diffs
+           with position.x = basis.position.x + f32.sum (map (.1.x) changes)
+           with position.y = basis.position.y + f32.sum (map (.1.y) changes)
 
 --mk_triangle
 
@@ -65,7 +65,7 @@ def circle_points: [](i64, i64) =
      |> flatten
      |> filter is_in_circle
 
-type text_content = i32
+type text_content = (i32, f32, f32)
 module lys: lys with text_content = text_content = {
   type~ state = {time: f32, h: i32, w: i32, cluster: cluster []}
 
@@ -114,10 +114,10 @@ module lys: lys with text_content = text_content = {
 
   type text_content = text_content
 
-  let text_format () = "FPS: %d"
+  let text_format () = "FPS: %d\nAbsolute orientation: %.03f (sign: %.01f)"
 
-  let text_content (render_duration: f32) (_: state): text_content =
-    t32 render_duration
+  let text_content (render_duration: f32) (s: state): text_content =
+    (t32 render_duration, f32.abs s.cluster.basis.orientation, f32.sgn s.cluster.basis.orientation)
 
   let text_colour = const argb.green
 }
