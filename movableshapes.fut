@@ -14,21 +14,35 @@ type cluster [n] = {basis: basis, particles: [n]particle}
 def radius = 10i64
 def diameter = radius * 2
 
-def adjust_basis (particle: particle) (position_change: position) (basis: basis): basis =
-  let pos_of_angle basis_angle =
-    let a = basis.orientation + basis_angle
-    in {x=particle.basis_distance * f32.cos a,
-        y = particle.basis_distance * f32.sin a}
-  let {x, y} = pos_of_angle particle.basis_angle
-  let basis_angle' = f32.atan2 (y + position_change.y) (x + position_change.x) - basis.orientation
-  let angle_diff = basis_angle' - particle.basis_angle
-  -- let {x=x1, y=y1} = pos_of_angle basis_angle'
-  -- let (x_diff, y_diff) = (x1 - x, y1 - y)
-  in basis with orientation = basis.orientation + angle_diff
-           with position.x = basis.position.x + position_change.x -- - x_diff
-           with position.y = basis.position.y + position_change.y -- - y_diff
+-- def adjust_basis (particle: particle) (position_change: position) (basis: basis): basis =
+--   let pos_of_angle basis_angle =
+--     let a = basis.orientation + basis_angle
+--     in {x=particle.basis_distance * f32.cos a,
+--         y = particle.basis_distance * f32.sin a}
+--   let {x, y} = pos_of_angle particle.basis_angle
+--   let basis_angle' = f32.atan2 (y + position_change.y) (x + position_change.x) - basis.orientation
+--   let angle_diff = basis_angle' - particle.basis_angle
+--   in basis with orientation = basis.orientation + angle_diff
+--            with position.x = basis.position.x + position_change.x
+--            with position.y = basis.position.y + position_change.y
 
-  -- basis
+def adjust_basis [n] (changes: [n](particle, position)) (basis: basis): basis =
+  let calc (particle, position_change) =
+    let pos_of_angle basis_angle =
+      let a = basis.orientation + basis_angle
+      in {x=particle.basis_distance * f32.cos a,
+          y=particle.basis_distance * f32.sin a}
+    let {x, y} = pos_of_angle particle.basis_angle
+    let basis_angle' = f32.atan2 (y + position_change.y) (x + position_change.x) - basis.orientation
+    let angle_diff = basis_angle' - particle.basis_angle
+    in angle_diff
+
+  let n' = f32.i64 n
+  let angle_diffs = map calc changes
+  in basis with orientation = basis.orientation + f32.sum angle_diffs / n'
+           with position.x = basis.position.x + f32.sum (map (.1.x) changes) / n'
+           with position.y = basis.position.y + f32.sum (map (.1.y) changes) / n'
+
 --mk_triangle
 
 def mk_square (height: i64) (width: i64): cluster [] =
@@ -69,15 +83,21 @@ module lys: lys with text_content = text_content = {
   let event (e: event) (s: state): state =
     match e
     case #step td ->
-      let cluster = s.cluster
-      let cluster = cluster with basis = adjust_basis s.cluster.particles[20*10-1] {x=0.5, y=0} cluster.basis
---      let cluster = cluster with basis = adjust_basis s.cluster.particles[20*9] {x= -0.5, y=0} cluster.basis
-      let cluster = cluster with basis = adjust_basis s.cluster.particles[0] {x= -0.5, y=0} cluster.basis
+      let changes = [ (s.cluster.particles[20*10-1], {x=0.5, y=0})
+                    , (s.cluster.particles[0], {x= -0.5, y=0})
+                    , (s.cluster.particles[20-1], {x=0, y= -0.5})
+                    , (s.cluster.particles[20*9], {x=0, y=0.5})
+                    ]
 
-      let cluster = cluster with basis = adjust_basis s.cluster.particles[20-1] {x=0, y= -0.5} cluster.basis
-      let cluster = cluster with basis = adjust_basis s.cluster.particles[20*9] {x=0, y=0.5} cluster.basis
+--       let cluster = s.cluster
+--       let cluster = cluster with basis = adjust_basis s.cluster.particles[20*10-1] {x=0.5, y=0} cluster.basis
+-- --      let cluster = cluster with basis = adjust_basis s.cluster.particles[20*9] {x= -0.5, y=0} cluster.basis
+--       let cluster = cluster with basis = adjust_basis s.cluster.particles[0] {x= -0.5, y=0} cluster.basis
+
+--       let cluster = cluster with basis = adjust_basis s.cluster.particles[20-1] {x=0, y= -0.5} cluster.basis
+--       let cluster = cluster with basis = adjust_basis s.cluster.particles[20*9] {x=0, y=0.5} cluster.basis
       in s with time = s.time + td
-           with cluster = cluster
+           with cluster.basis = adjust_basis changes s.cluster.basis
     case _ -> s
 
   let render (s: state): [][]argb.colour =
