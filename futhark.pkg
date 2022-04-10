@@ -1,4 +1,5 @@
 require {
   github.com/athas/vector 0.7.1 #c8f9f029530cb29db9b2957b80e65dbe893c01df
   github.com/diku-dk/lys 0.1.16 #f59d97c25005f04a1b518e092707e1e54e593715
+  github.com/diku-dk/segmented 0.4.3 #3d86d79e757d68fb503c551e894c4ef4b091bdfc
 }

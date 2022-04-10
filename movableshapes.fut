@@ -1,5 +1,6 @@
 import "lib/github.com/diku-dk/lys/lys"
 import "lib/github.com/athas/vector/vspace"
+import "scanline"
 
 module vec2 = mk_vspace_2d f32
 
@@ -13,18 +14,6 @@ type cluster [n] = {basis: basis, particles: [n]particle}
 
 def radius = 10i64
 def diameter = radius * 2
-
--- def adjust_basis (particle: particle) (position_change: position) (basis: basis): basis =
---   let pos_of_angle basis_angle =
---     let a = basis.orientation + basis_angle
---     in {x=particle.basis_distance * f32.cos a,
---         y = particle.basis_distance * f32.sin a}
---   let {x, y} = pos_of_angle particle.basis_angle
---   let basis_angle' = f32.atan2 (y + position_change.y) (x + position_change.x) - basis.orientation
---   let angle_diff = basis_angle' - particle.basis_angle
---   in basis with orientation = basis.orientation + angle_diff
---            with position.x = basis.position.x + position_change.x
---            with position.y = basis.position.y + position_change.y
 
 def adjust_basis [n] (changes: [n](particle, position)) (basis: basis): basis =
   let calc (particle, position_change) =
@@ -65,6 +54,10 @@ def circle_points: [](i64, i64) =
      |> flatten
      |> filter is_in_circle
 
+def triangle_points [n] (triangle_slopes: [n]triangle_slopes) =
+  let lines = lines_of_triangles triangle_slopes (replicate n ())
+  in points_of_lines lines
+
 type text_content = (i32, f32, f32)
 module lys: lys with text_content = text_content = {
   type~ state = {time: f32, h: i32, w: i32, cluster: cluster []}
@@ -88,14 +81,6 @@ module lys: lys with text_content = text_content = {
                     , (s.cluster.particles[20-1], {x=0, y= -0.5})
                     , (s.cluster.particles[20*9], {x=0, y=0.5})
                     ]
-
---       let cluster = s.cluster
---       let cluster = cluster with basis = adjust_basis s.cluster.particles[20*10-1] {x=0.5, y=0} cluster.basis
--- --      let cluster = cluster with basis = adjust_basis s.cluster.particles[20*9] {x= -0.5, y=0} cluster.basis
---       let cluster = cluster with basis = adjust_basis s.cluster.particles[0] {x= -0.5, y=0} cluster.basis
-
---       let cluster = cluster with basis = adjust_basis s.cluster.particles[20-1] {x=0, y= -0.5} cluster.basis
---       let cluster = cluster with basis = adjust_basis s.cluster.particles[20*9] {x=0, y=0.5} cluster.basis
       in s with time = s.time + td
            with cluster.basis = adjust_basis changes s.cluster.basis
     case _ -> s
@@ -104,6 +89,12 @@ module lys: lys with text_content = text_content = {
     let {x=x0, y=y0} = s.cluster.basis.position
     let a0 = s.cluster.basis.orientation
     let background = tabulate_2d (i64.i32 s.h) (i64.i32 s.w) (const (const argb.black))
+
+    -- triangle test
+    let t_slopes = triangle_slopes (normalize_triangle_points ({x=50, y=50}, {x=150, y=75}, {x=110, y=200}))
+    let ts_is = map (\({x, y}, _) -> (i64.i32 x, i64.i32 y)) (triangle_points [t_slopes])
+    let background = scatter_2d background ts_is (map (const argb.green) ts_is)
+
     let mk_particle_is p =
       let a = a0 + p.basis_angle
       let y0 = i64.f32 (y0 + f32.sin a * p.basis_distance)
