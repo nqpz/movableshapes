@@ -35,13 +35,16 @@ def mk_triangle (t0: position) (t1: position) (t2: position): cluster [] =
   let to_particle (p: position): particle =
     let x = p.x - basis.position.x
     let y = p.y - basis.position.y
-    in {basis_distance=f32.sqrt (x * x + y * y), basis_angle=f32.atan2 y x}
+    in {basis_distance=f32.sqrt (x * x + y * y), basis_angle=f32.atan2 y x} -- fixme use vec2.norm
   let particles = [to_particle t0, to_particle t1, to_particle t2]
   in {basis, particles}
 
 def triangle_points [n] (triangle_slopes: [n]triangle_slopes) =
   let lines = lines_of_triangles triangle_slopes (replicate n ())
   in points_of_lines lines
+
+let planet: position = {x=1000, y=900}
+let planet_mass = 150f32
 
 type text_content = (i32, f32, f32)
 module lys: lys with text_content = text_content = {
@@ -52,7 +55,7 @@ module lys: lys with text_content = text_content = {
   let init (_seed: u32) (h: i64) (w: i64): state =
     let cluster = mk_triangle {x=50, y=50} {x=150, y=75} {x=110, y=200}
     let cluster = cluster with basis.position.x = cluster.basis.position.x + 400
-                          with basis.position.y = cluster.basis.position.y + 800
+                          with basis.position.y = cluster.basis.position.y + 400
     in {time=0, h=i32.i64 h, w=i32.i64 w, cluster}
 
   let resize (h: i64) (w: i64) (s: state): state =
@@ -61,9 +64,16 @@ module lys: lys with text_content = text_content = {
   let event (e: event) (s: state): state =
     match e
     case #step td ->
-      let changes = [ (s.cluster.particles[0], {x= 0, y= -0.05})
-                    , (s.cluster.particles[2], {x= 0, y= -1.0})
-                    ]
+
+      let particle_change (p: particle): (particle, position) =
+        let pp = pos_of_angle s.cluster.basis.orientation p
+        let v = vec2.(planet - (pp + s.cluster.basis.position))
+        -- let a = f32.atan2 v.y v.x
+        let dist = vec2.norm v
+        let f = f32.min 1 (planet_mass / dist**2) -- fixme don't use min? + add acceleration
+        in (p, vec2.scale f v)
+
+      let changes = map particle_change s.cluster.particles
       in s with time = s.time + td
            with cluster.basis = adjust_basis changes s.cluster.basis
     case _ -> s
@@ -77,7 +87,22 @@ module lys: lys with text_content = text_content = {
                                                                to_point s.cluster.particles[1],
                                                                to_point s.cluster.particles[2]))
     let ts_is = map (\({x, y}, _) -> (i64.i32 y, i64.i32 x)) (triangle_points [t_slopes])
+
     let background = tabulate_2d (i64.i32 s.h) (i64.i32 s.w) (const (const argb.black))
+
+    let radius = 20
+    let diameter = radius * 2
+    let planet_is =
+      let is_in_circle (y, x) =
+        let y' = f32.i64 (y - radius)
+        let x' = f32.i64 (x - radius)
+        in f32.sqrt (y' * y' + x' * x') < f32.i64 radius
+      in tabulate_2d diameter diameter (\y x -> (y, x))
+         |> flatten
+         |> filter is_in_circle
+         |> map (\(y, x) -> (y + i64.f32 planet.y - radius, x + i64.f32 planet.x - radius))
+    let background = scatter_2d background planet_is (map (const argb.white) planet_is)
+
     in scatter_2d background ts_is (map (const argb.green) ts_is)
 
   type text_content = text_content
