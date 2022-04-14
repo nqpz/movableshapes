@@ -1,6 +1,6 @@
 import "lib/github.com/diku-dk/lys/lys"
 import "lib/github.com/athas/vector/vspace"
-import "scanline"
+module scanline = import "scanline"
 
 module real = f32
 type real = real.t
@@ -8,6 +8,8 @@ module vec2 = mk_vspace_2d real
 type vector = vec2.vector
 
 type vector_generic 'a = {y: a, x: a}
+
+type triangle 'a = (a, a, a)
 
 type particle = {basis_distance: real, basis_angle: real, velocity: vector}
 
@@ -52,10 +54,11 @@ def mk_triangle (t0: vector) (t1: vector) (t2: vector): cluster [] =
   let particles = [to_particle t0, to_particle t1, to_particle t2]
   in {basis, particles}
 
-def triangle_points [n] (triangle_slopes: [n]triangle_slopes): [](vector_generic i32) =
+def triangle_points [n] (triangles: [n](triangle (vector_generic i32))): [](vector_generic i32) =
+  let slopes = map (scanline.normalize_triangle_points >-> scanline.triangle_slopes) triangles
   let aux = replicate n () -- We don't use this feature for now.
-  let lines = lines_of_triangles triangle_slopes aux
-  let (points, _aux) = unzip (points_of_lines lines)
+  let lines = scanline.lines_of_triangles slopes aux
+  let (points, _aux) = unzip (scanline.points_of_lines lines)
   in points
 
 let planet: vector = {y=900, x=1000}
@@ -95,7 +98,7 @@ module lys: lys with text_content = text_content = {
     let render_planet [m][n] (background: *[m][n]argb.colour): *[m][n]argb.colour =
       let radius = 20f32
       let diameter = radius * 2
-      let planet_is =
+      let planet_coor =
         let is_in_circle pos = vec2.norm pos < radius
         let diameter' = i64.f32 diameter
         in tabulate_2d diameter' diameter'
@@ -105,16 +108,16 @@ module lys: lys with text_content = text_content = {
            |> flatten
            |> filter is_in_circle
            |> map ((vec2.+ planet) >-> vec2_map_generic i64.f32 >-> vec2_to_tuple)
-      in scatter_2d background planet_is (map (const argb.white) planet_is)
+      in scatter_2d background planet_coor (map (const argb.white) planet_coor)
 
     let render_cluster [m][n] (background: *[m][n]argb.colour): *[m][n]argb.colour =
-      let to_point: particle -> point =
+      let to_point: particle -> vector_generic i32 =
         particle_pos_abs s.cluster.basis >-> vec2_map_generic (real.round >-> t32)
-      let t_slopes = triangle_slopes (normalize_triangle_points (to_point s.cluster.particles[0],
-                                                                 to_point s.cluster.particles[1],
-                                                                 to_point s.cluster.particles[2]))
-      let ts_is = map (vec2_map_generic i64.i32 >-> vec2_to_tuple) (triangle_points [t_slopes])
-      in scatter_2d background ts_is (map (const argb.green) ts_is)
+      let triangles = [(to_point s.cluster.particles[0],
+                        to_point s.cluster.particles[1],
+                        to_point s.cluster.particles[2])]
+      let triangles_coor = map (vec2_map_generic i64.i32 >-> vec2_to_tuple) (triangle_points triangles)
+      in scatter_2d background triangles_coor (map (const argb.green) triangles_coor)
 
     let background = replicate (i64.i32 s.h) (replicate (i64.i32 s.w) argb.black)
     let background = render_planet background
