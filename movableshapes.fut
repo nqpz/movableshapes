@@ -9,7 +9,7 @@ type vector = vec2.vector
 
 type vector_generic 'a = {y: a, x: a}
 
-type triangle 'a = (vector_generic a, vector_generic a, vector_generic a)
+type triangle 'a = (a, a, a)
 
 type planet = {position: vector, radius: real, mass: real} -- FIXME: Calculate depending on circle area
 
@@ -17,7 +17,7 @@ type particle = {basis_distance: real, basis_angle: real, velocity: vector}
 
 type basis = {position: vector, orientation: real}
 
-type~ cluster = {basis: basis, particles: []particle, triangles: [](i32, i32, i32)}
+type~ cluster = {basis: basis, particles: []particle, triangles: [](triangle i32)}
 
 def particle_pos_rel (basis: basis) (particle: particle): vector =
   let a = particle.basis_angle + basis.orientation
@@ -35,7 +35,7 @@ def vec2_map_generic 'a 'b (f: a -> b) (v: vector_generic a): vector_generic b =
 def vec2_to_tuple 'a ({y, x}: vector_generic a): (a, a) =
   (y, x)
 
-def adjust_basis [n] (basis: basis) (updated_particles: [n]particle): basis =
+def adjust_basis (basis: basis) (updated_particles: []particle): basis =
   let calc_angle_diff (particle: particle): real =
     let {x, y} = vec2.(particle_pos_rel basis particle + particle.velocity)
     let basis_angle' = real.atan2 y x - basis.orientation
@@ -46,18 +46,30 @@ def adjust_basis [n] (basis: basis) (updated_particles: [n]particle): basis =
   in basis with orientation = basis.orientation + real.sum angle_diffs
            with position = basis.position vec2.+ vec2_sum (map (.velocity) updated_particles)
 
-def mk_triangle ((t0, t1, t2): triangle real): cluster =
-  let basis = {position={y=(t0.y + t1.y + t2.y) / 3,
-                         x=(t0.x + t1.x + t2.x) / 3},
-               orientation=0}
-  let to_particle (p: vector): particle =
-    let v = vec2.(p - basis.position)
-    in {basis_distance=vec2.norm v, basis_angle=real.atan2 v.y v.x, velocity=vec2.zero}
-  let particles = [to_particle t0, to_particle t1, to_particle t2]
-  let triangles = [(0, 1, 2)]
-  in {basis, particles, triangles}
+def pos_to_particle (basis: basis) (pos: vector): particle =
+  let v = vec2.(pos - basis.position)
+  in {basis_distance=vec2.norm v, basis_angle=real.atan2 v.y v.x, velocity=vec2.zero}
 
-def triangle_points [n] (triangles: [n](triangle i32)): [](vector_generic i32) =
+def triangle_centroid ((t0, t1, t2): triangle vector): vector =
+  {y=(t0.y + t1.y + t2.y) / 3,
+   x=(t0.x + t1.x + t2.x) / 3}
+
+def mk_triangle (t: triangle vector): cluster =
+  let basis = {position=triangle_centroid t, orientation=0}
+  in {basis,
+      particles=map (pos_to_particle basis) [t.0, t.1, t.2],
+      triangles=[(0, 1, 2)]}
+
+def mk_triangles [n_triangles] (points: []vector) (triangles: [n_triangles](triangle i32)): cluster =
+  let triangles' = map (\t -> #[unsafe] (points[t.0], points[t.1], points[t.2])) triangles
+  let position = vec2.scale (1 / f32.i64 n_triangles) (vec2_sum (map triangle_centroid triangles'))
+  let basis = {position,
+               orientation=0}
+  in {basis,
+      particles=map (pos_to_particle basis) points,
+      triangles}
+
+def triangle_points [n] (triangles: [n](triangle (vector_generic i32))): [](vector_generic i32) =
   let slopes = map (scanline.normalize_triangle_points >-> scanline.triangle_slopes) triangles
   let aux = replicate n () -- We don't use this feature for now.
   let lines = scanline.lines_of_triangles slopes aux
@@ -86,12 +98,9 @@ def render_planet [m][n] (planet: planet) (background: *[m][n]argb.colour): *[m]
 
 def render_cluster [m][n] (cluster: cluster) (background: *[m][n]argb.colour): *[m][n]argb.colour =
   let triangle_color = argb.green -- FIXME: Maybe don't hardcode this.
-  let to_point: particle -> vector_generic i32 =
-    particle_pos_abs cluster.basis >-> vec2_map_generic (real.round >-> t32)
-  let triangles = map (\(i0, i1, i2) ->
-                         #[unsafe] (to_point cluster.particles[i0],
-                                    to_point cluster.particles[i1],
-                                    to_point cluster.particles[i2]))
+  let points = map (particle_pos_abs cluster.basis >-> vec2_map_generic (real.round >-> t32))
+                   cluster.particles
+  let triangles = map (\(i0, i1, i2) -> #[unsafe] (points[i0], points[i1], points[i2]))
                       cluster.triangles
   let triangles_coor = map (vec2_map_generic i64.i32 >-> vec2_to_tuple) (triangle_points triangles)
   in scatter_2d background triangles_coor (map (const triangle_color) triangles_coor)

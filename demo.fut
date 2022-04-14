@@ -11,7 +11,9 @@ module lys: lys with text_content = text_content = {
   let grab_mouse = false
 
   let init (_seed: u32) (h: i64) (w: i64): state =
-    let cluster = mk_triangle ({y=50, x=50}, {y=75, x=150}, {y=200, x=110})
+    let cluster = mk_triangles
+                  [{y=50, x=50}, {y=75, x=150}, {y=200, x=110}, {y=270, x=200}]
+                  [(0, 1, 2), (1, 2, 3)]
     let planet = {position={y=900, x=1000},
                   radius=20,
                   mass=15f32}
