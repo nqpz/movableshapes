@@ -12,7 +12,8 @@ module lys: lys with text_content = text_content = {
 
   def init (_seed: u32) (h: i64) (w: i64): state =
     let cluster = mk_triangles
-                  [{y=50, x=50}, {y=75, x=150}, {y=200, x=110}, {y=270, x=200}]
+                  -- [{y=50, x=50}, {y=75, x=150}, {y=200, x=110}, {y=270, x=200}]
+                  [{y=100, x=50}, {y=50, x=50}, {y=100, x=800}, {y=50, x=800}]
                   [(0, 1, 2), (1, 2, 3)]
     let planet = {position={y=real.i64 h / 2, x=real.i64 w / 2},
                   radius=20,

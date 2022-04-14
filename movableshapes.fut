@@ -39,8 +39,8 @@ def adjust_basis (basis: basis) (updated_particles: []particle): basis =
   let calc_angle_diff (particle: particle): real =
     let {x, y} = vec2.(particle_pos_rel basis particle + particle.velocity)
     let basis_angle' = real.atan2 y x - basis.orientation
-    let angle_diff = basis_angle' - particle.basis_angle
-    in if real.abs angle_diff > 1 then 0 else angle_diff -- FIXME (1 is arbitrary)
+    let angle_diff = (basis_angle' - particle.basis_angle) % (2 * real.pi)
+    in angle_diff -- if real.abs angle_diff > 1 then 0 else angle_diff -- FIXME (1 is arbitrary)
 
   let angle_diffs = map calc_angle_diff updated_particles
   in basis with orientation = basis.orientation + real.sum angle_diffs
