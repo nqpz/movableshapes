@@ -62,7 +62,7 @@ def mk_triangle (t: triangle vector): cluster =
 
 def mk_triangles [n_triangles] (points: []vector) (triangles: [n_triangles](triangle i32)): cluster =
   let triangles' = map (\t -> #[unsafe] (points[t.0], points[t.1], points[t.2])) triangles
-  let position = vec2.scale (1 / f32.i64 n_triangles) (vec2_sum (map triangle_centroid triangles'))
+  let position = vec2.scale (1 / real.i64 n_triangles) (vec2_sum (map triangle_centroid triangles'))
   let basis = {position,
                orientation=0}
   in {basis,

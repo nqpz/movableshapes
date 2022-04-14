@@ -14,21 +14,27 @@ module lys: lys with text_content = text_content = {
     let cluster = mk_triangles
                   [{y=50, x=50}, {y=75, x=150}, {y=200, x=110}, {y=270, x=200}]
                   [(0, 1, 2), (1, 2, 3)]
-    let planet = {position={y=900, x=1000},
+    let planet = {position={y=real.i64 h / 2, x=real.i64 w / 2},
                   radius=20,
-                  mass=15f32}
+                  mass=10f32}
     in {time=0, h, w, cluster, planet}
 
   def resize (h: i64) (w: i64) (s: state): state =
     s with h = h with w = w
 
+  def step (td: f32) (s: state): state =
+    let particles' = map (update_particle_for_planet s.planet s.cluster.basis) s.cluster.particles
+    in s with time = s.time + td
+         with cluster.basis = adjust_basis s.cluster.basis particles'
+         with cluster.particles = particles'
+
+  def mouse ((x, y): (i32, i32)) (s: state): state =
+    s with planet.position = {y=r32 y, x=r32 x}
+
   def event (e: event) (s: state): state =
     match e
-    case #step td ->
-      let particles' = map (update_particle_for_planet s.planet s.cluster.basis) s.cluster.particles
-      in s with time = s.time + td
-           with cluster.basis = adjust_basis s.cluster.basis particles'
-           with cluster.particles = particles'
+    case #step td -> step td s
+    case #mouse {buttons=_, x, y} -> mouse (x, y) s
     case _ -> s
 
   def render (s: state): [][]argb.colour =
