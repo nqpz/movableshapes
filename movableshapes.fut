@@ -43,7 +43,7 @@ def triangle_points [n] (triangle_slopes: [n]triangle_slopes) =
 let planet: vec2.vector = {x=1000, y=900}
 let planet_mass = 15f32
 
-type text_content = (i32, f32, f32)
+type text_content = (i32, f32, f32, f32)
 module lys: lys with text_content = text_content = {
   type~ state = {time: f32, h: i32, w: i32, cluster: cluster []}
 
@@ -105,10 +105,10 @@ module lys: lys with text_content = text_content = {
 
   type text_content = text_content
 
-  let text_format () = "FPS: %d\nAbsolute orientation: %.03f (sign: %.01f)"
+  let text_format () = "FPS: %d\nCluster: (%.03f, %.03f) orientation %.03f"
 
   let text_content (render_duration: f32) (s: state): text_content =
-    (t32 render_duration, f32.abs s.cluster.basis.orientation, f32.sgn s.cluster.basis.orientation)
+    (t32 render_duration, s.cluster.basis.position.x, s.cluster.basis.position.y, s.cluster.basis.orientation)
 
   let text_colour = const argb.green
 }
