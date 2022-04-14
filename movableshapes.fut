@@ -9,7 +9,7 @@ type vector = vec2.vector
 
 type vector_generic 'a = {y: a, x: a}
 
-type triangle 'a = (a, a, a)
+type triangle 'a = (vector_generic a, vector_generic a, vector_generic a)
 
 type planet = {position: vector, radius: real, mass: real} -- FIXME: Calculate depending on circle area
 
@@ -17,7 +17,7 @@ type particle = {basis_distance: real, basis_angle: real, velocity: vector}
 
 type basis = {position: vector, orientation: real}
 
-type cluster [n] = {basis: basis, particles: [n]particle}
+type~ cluster = {basis: basis, particles: []particle}
 
 def particle_pos_rel (basis: basis) (particle: particle): vector =
   let a = particle.basis_angle + basis.orientation
@@ -46,7 +46,7 @@ def adjust_basis [n] (basis: basis) (updated_particles: [n]particle): basis =
   in basis with orientation = basis.orientation + real.sum angle_diffs
            with position = basis.position vec2.+ vec2_sum (map (.velocity) updated_particles)
 
-def mk_triangle (t0: vector) (t1: vector) (t2: vector): cluster [] =
+def mk_triangle ((t0, t1, t2): triangle real): cluster =
   let basis = {position={y=(t0.y + t1.y + t2.y) / 3,
                          x=(t0.x + t1.x + t2.x) / 3},
                orientation=0}
@@ -56,7 +56,7 @@ def mk_triangle (t0: vector) (t1: vector) (t2: vector): cluster [] =
   let particles = [to_particle t0, to_particle t1, to_particle t2]
   in {basis, particles}
 
-def triangle_points [n] (triangles: [n](triangle (vector_generic i32))): [](vector_generic i32) =
+def triangle_points [n] (triangles: [n](triangle i32)): [](vector_generic i32) =
   let slopes = map (scanline.normalize_triangle_points >-> scanline.triangle_slopes) triangles
   let aux = replicate n () -- We don't use this feature for now.
   let lines = scanline.lines_of_triangles slopes aux
@@ -83,7 +83,7 @@ def render_planet [m][n] (planet: planet) (background: *[m][n]argb.colour): *[m]
        |> map ((vec2.+ planet.position) >-> vec2_map_generic i64.f32 >-> vec2_to_tuple)
   in scatter_2d background planet_coor (map (const argb.white) planet_coor)
 
-def render_cluster [m][n] (cluster: cluster []) (background: *[m][n]argb.colour): *[m][n]argb.colour =
+def render_cluster [m][n] (cluster: cluster) (background: *[m][n]argb.colour): *[m][n]argb.colour =
   let triangle_color = argb.green -- FIXME: Maybe don't hardcode this.
   let to_point: particle -> vector_generic i32 =
     particle_pos_abs cluster.basis >-> vec2_map_generic (real.round >-> t32)

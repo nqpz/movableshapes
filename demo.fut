@@ -5,14 +5,13 @@ type text_content = (i32, real, real, real)
 module lys: lys with text_content = text_content = {
   type~ state = {time: real,
                  h: i64, w: i64,
-                 cluster: cluster [],
+                 cluster: cluster,
                  planet: planet}
 
   let grab_mouse = false
 
   let init (_seed: u32) (h: i64) (w: i64): state =
-    let cluster = mk_triangle {y=50, x=50} {y=75, x=150} {y=200, x=110}
-    let cluster = cluster with basis.position = vec2.(cluster.basis.position + {y=400, x=400})
+    let cluster = mk_triangle ({y=50, x=50}, {y=75, x=150}, {y=200, x=110})
     let planet = {position={y=900, x=1000},
                   radius=20,
                   mass=15f32}
