@@ -98,7 +98,7 @@ module lys: lys with text_content = text_content = {
     let render_planet [m][n] (background: *[m][n]argb.colour): *[m][n]argb.colour =
       let radius = 20f32
       let diameter = radius * 2
-      let planet_coor =
+      let planet_coor = -- FIXME: Draw the circle with scanline instead of filter
         let is_in_circle pos = vec2.norm pos < radius
         let diameter' = i64.f32 diameter
         in tabulate_2d diameter' diameter'
