@@ -4,9 +4,9 @@ import "scanline"
 
 module vec2 = mk_vspace_2d f32
 
-type position = vec2.vector
+type position = vec2.vector -- fixme other name than position
 
-type particle = {basis_distance: f32, basis_angle: f32}
+type particle = {basis_distance: f32, basis_angle: f32, velocity: position}
 
 type basis = {position: position, orientation: f32}
 
@@ -33,9 +33,8 @@ def adjust_basis [n] (changes: [n](particle, position)) (basis: basis): basis =
 def mk_triangle (t0: position) (t1: position) (t2: position): cluster [] =
   let basis = {position={x=(t0.x + t1.x + t2.x) / 3, y=(t0.y + t1.y + t2.y) / 3}, orientation=0}
   let to_particle (p: position): particle =
-    let x = p.x - basis.position.x
-    let y = p.y - basis.position.y
-    in {basis_distance=f32.sqrt (x * x + y * y), basis_angle=f32.atan2 y x} -- fixme use vec2.norm
+    let v = vec2.(p - basis.position)
+    in {basis_distance=vec2.norm v, basis_angle=f32.atan2 v.y v.x, velocity=vec2.zero} -- fixme use vec2.norm
   let particles = [to_particle t0, to_particle t1, to_particle t2]
   in {basis, particles}
 
@@ -44,7 +43,7 @@ def triangle_points [n] (triangle_slopes: [n]triangle_slopes) =
   in points_of_lines lines
 
 let planet: position = {x=1000, y=900}
-let planet_mass = 150f32
+let planet_mass = 15f32
 
 type text_content = (i32, f32, f32)
 module lys: lys with text_content = text_content = {
@@ -68,14 +67,16 @@ module lys: lys with text_content = text_content = {
       let particle_change (p: particle): (particle, position) =
         let pp = pos_of_angle s.cluster.basis.orientation p
         let v = vec2.(planet - (pp + s.cluster.basis.position))
-        -- let a = f32.atan2 v.y v.x
         let dist = vec2.norm v
-        let f = f32.min 1 (planet_mass / dist**2) -- fixme don't use min? + add acceleration
-        in (p, vec2.scale f v)
+        let f = planet_mass / dist**2
+        let friction = 0.99
+        let p = p with velocity = vec2.(scale friction p.velocity + scale f v)
+        in (p, p.velocity)
 
       let changes = map particle_change s.cluster.particles
       in s with time = s.time + td
            with cluster.basis = adjust_basis changes s.cluster.basis
+           with cluster.particles = map (.0) changes
     case _ -> s
 
   let render (s: state): [][]argb.colour =
