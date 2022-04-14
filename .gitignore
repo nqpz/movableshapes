@@ -2,5 +2,5 @@
 /*.c
 /*.o
 /*.h
-/movableshapes_wrapper.*
-/movableshapes
+/demo_wrapper.*
+/demo
