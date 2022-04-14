@@ -17,7 +17,7 @@ type particle = {basis_distance: real, basis_angle: real, velocity: vector}
 
 type basis = {position: vector, orientation: real}
 
-type~ cluster = {basis: basis, particles: []particle}
+type~ cluster = {basis: basis, particles: []particle, triangles: [](i32, i32, i32)}
 
 def particle_pos_rel (basis: basis) (particle: particle): vector =
   let a = particle.basis_angle + basis.orientation
@@ -54,7 +54,8 @@ def mk_triangle ((t0, t1, t2): triangle real): cluster =
     let v = vec2.(p - basis.position)
     in {basis_distance=vec2.norm v, basis_angle=real.atan2 v.y v.x, velocity=vec2.zero}
   let particles = [to_particle t0, to_particle t1, to_particle t2]
-  in {basis, particles}
+  let triangles = [(0, 1, 2)]
+  in {basis, particles, triangles}
 
 def triangle_points [n] (triangles: [n](triangle i32)): [](vector_generic i32) =
   let slopes = map (scanline.normalize_triangle_points >-> scanline.triangle_slopes) triangles
@@ -87,9 +88,11 @@ def render_cluster [m][n] (cluster: cluster) (background: *[m][n]argb.colour): *
   let triangle_color = argb.green -- FIXME: Maybe don't hardcode this.
   let to_point: particle -> vector_generic i32 =
     particle_pos_abs cluster.basis >-> vec2_map_generic (real.round >-> t32)
-  let triangles = [(to_point cluster.particles[0],
-                    to_point cluster.particles[1],
-                    to_point cluster.particles[2])]
+  let triangles = map (\(i0, i1, i2) ->
+                         #[unsafe] (to_point cluster.particles[i0],
+                                    to_point cluster.particles[i1],
+                                    to_point cluster.particles[i2]))
+                      cluster.triangles
   let triangles_coor = map (vec2_map_generic i64.i32 >-> vec2_to_tuple) (triangle_points triangles)
   in scatter_2d background triangles_coor (map (const triangle_color) triangles_coor)
 
